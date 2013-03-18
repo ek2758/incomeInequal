@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+	font: 10px sans-serif;
+	}
+
+.axis path,
+.axis line {
+	fill: none;
+	stroke: #000;
+	shape-rendering: crispEdges;
+	}
+
+/* Doesn't show x-axis at bottom of graph */
+x.axis path {
+	display: none;
+	}
+
+.line {
+	fill: none;
+	stroke: steelblue;
+	stroke-width: 1.5px;
+	}
+
+/* 
+.area {
+	fill: mistyrose; Color of area shape
+	}
+ */
+
+/* 
+div.tooltip {
+	position: absolute;
+	text-align: center;
+	width: 60px;
+	height: 28px;
+	padding: 2px;
+	font: 12px sans-serif;
+	background: lightsteelblue;
+	border: 0px;
+	border-radius: 8px;
+	pointer-events: none;         
+}
+ */
+
+</style>
+<head>
+	<title>Income Inequality</title>
+</head>
+<body>
+<h1>Mean Household Income in America</h1>
+<blockquote></blockquote>
+<script src="http://d3js.org/d3.v3.js"></script>
+<script>
+
+var margin = {top: 20, right: 80, bottom: 30, left: 50},
+	width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var parseDate = d3.time.format("%Y%m%d").parse;
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var color = d3.scale.category10();
+
+var xAxis = d3.svg.axis()
+	.scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left");
+
+var line = d3.svg.line()
+	.interpolate("basis")
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.income); });
+    
+// var refLine = d3.svg.line()
+// 	.x(
+
+// var area = d3.svg.area() // Create variable AREA to fill color between lines
+//     .x(function(d) { return x(d.date); })
+//     .y0(function(d) { return y(d["Mean"]); })
+//     .y1(function(d) { return y(d["Top 5%"]); });
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+	.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+d3.csv("data/inequalLoHiAll.csv", function(error, data) {
+	color.domain(d3.keys(data[0]).filter(function(key) { return key !== "date"; }));
+
+data.forEach(function(d) {
+	d.date = parseDate(d.date);
+	});
+
+var incomeclasses = color.domain().map(function(name) {
+	return {
+		name: name,
+		values: data.map(function(d) {
+			return {date: d.date, income: +d[name]};
+    })
+};
+});
+	
+	x.domain(d3.extent(data, function(d) { return d.date; }));
+
+	y.domain([
+		0,
+    	d3.max(incomeclasses, function(c) { return d3.max(c.values, function(v) { return v.income; }); })
+	]);
+  
+// 	svg.append("path") // Add AREA between lines
+// 		.datum(data)
+// 		.attr("class", "area")
+// 		.attr("d", area);
+
+	svg.append("g") 
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis);
+
+	svg.append("g")
+		.attr("class", "y axis")
+		.call(yAxis)
+		.append("text")
+		.attr("transform", "rotate(-90)")
+		.attr("y", 6)
+		.attr("dy", ".71em")
+		.style("text-anchor", "end")
+		.text("Income (2011 CPI-adjusted $s)");
+
+	var incomeclass = svg.selectAll(".incomeclass")
+		.data(incomeclasses)
+		.enter().append("g")
+		.attr("class", "incomeclass");
+
+	var path = incomeclass.append("path")
+		.attr("class", "line")
+		.attr("d", function(d) { return line(d.values); })
+		.style("stroke", function(d) { return color(d.name); })
+
+//   var totalLength = path.node().getTotalLength();
+
+	path
+		.attr("stroke-dasharray", function(d) {
+      	var totalLength = d3.select(this).node().getTotalLength();
+      	return totalLength + " " + totalLength
+      })
+		.attr("stroke-dashoffset", function(d) {
+       	var totalLength = d3.select(this).node().getTotalLength();
+ 	   	return totalLength
+ 	   })
+      .transition()
+		.duration(2000)
+        .ease("linear")
+        .attr("stroke-dashoffset", 0);
+
+	svg.on("click", function(){
+		path      
+        .transition()
+        .duration(2000)
+        .ease("linear")
+        .attr("stroke-dashoffset", totalLength);
+    })
+
+	incomeclass.append("text")
+		.datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
+		.attr("transform", function(d) { return "translate(" + x(d.value.date) + "," + y(d.value.income) + ")"; })
+		.attr("x", 3)
+		.attr("dy", ".35em")
+		.text(function(d) { return d.name; });
+      
+});
+
+</script>
